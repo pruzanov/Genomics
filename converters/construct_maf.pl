@@ -138,9 +138,11 @@ sub init_varhash {
    my @vcfinfo = split("\t", $2);
    my $readid = $baminfo[3];
    my $snp_id = join(":",($vcfinfo[0], $vcfinfo[1]));
+   
    if ($filter && $vcfinfo[6] ne $filter) {next;}
+   $read2snp{$readid} = $snp_id;
+
    if (!$varhash{$snp_id} && $vcfinfo[3]=~/^[A-T]{1}$/ && $vcfinfo[4]=~/^[A-T]{1}(\,.*)*$/)  { 
-       $read2snp{$readid} = $snp_id;
        $varhash{$snp_id} = SNVCall->new(@vcfinfo[0..1],@vcfinfo[3..4]);
        $varhash{$snp_id}->set_tumor_id($tumor_id);
        $varhash{$snp_id}->set_normal_id($normal_id);
