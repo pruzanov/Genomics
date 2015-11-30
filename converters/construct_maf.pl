@@ -27,7 +27,7 @@
  16. i_picard_oxoQ value (OXIDATION_Q produced with Picard's CollectOxoGMetrics tool)
 
  MARGIN defines how many bases we want on each side (with 1 we get 3, with 2 we get 5 etc.)
- when extracting context for a SNP - having margin set to anything other than 1 crashes D-ToxoG 
+ when extracting context for a SNP
 
 =cut
 
@@ -138,19 +138,19 @@ sub init_varhash {
    my @vcfinfo = split("\t", $2);
    my $readid = $baminfo[3];
    my $snp_id = join(":",($vcfinfo[0], $vcfinfo[1]));
-   
    if ($filter && $vcfinfo[6] ne $filter) {next;}
-   $read2snp{$readid} = $snp_id;
+   if ($vcfinfo[3]=~/^[A-T]{1}$/ && $vcfinfo[4]=~/^[A-T]{1}(\,.*)*$/)  { 
+       $read2snp{$readid} = $snp_id;
+       if (!$varhash{$snp_id}) {
+        $varhash{$snp_id} = SNVCall->new(@vcfinfo[0..1],@vcfinfo[3..4]);
+        $varhash{$snp_id}->set_tumor_id($tumor_id);
+        $varhash{$snp_id}->set_normal_id($normal_id);
+        $varhash{$snp_id}->set_context(&get_context(@vcfinfo[0..1],MARGIN));
 
-   if (!$varhash{$snp_id} && $vcfinfo[3]=~/^[A-T]{1}$/ && $vcfinfo[4]=~/^[A-T]{1}(\,.*)*$/)  { 
-       $varhash{$snp_id} = SNVCall->new(@vcfinfo[0..1],@vcfinfo[3..4]);
-       $varhash{$snp_id}->set_tumor_id($tumor_id);
-       $varhash{$snp_id}->set_normal_id($normal_id);
-       $varhash{$snp_id}->set_context(&get_context(@vcfinfo[0..1],MARGIN));
-
-       # This will work only if MARGIN is set to 1
-       if (my $poxo = $poxo_q{$varhash{$snp_id}->get_context()}) {
-          $varhash{$snp_id}->set_poxoq($poxo);
+        # This will work only if MARGIN is set to 1
+        if (my $poxo = $poxo_q{$varhash{$snp_id}->get_context()}) {
+           $varhash{$snp_id}->set_poxoq($poxo);
+        }
        }
        
    } else {
