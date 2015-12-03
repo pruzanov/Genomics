@@ -130,17 +130,17 @@ sub update_read {
  } 
 
  if ($tag & 64) {       # First read
-   #print STDERR "First in pair\n" if DEBUG;
+   print STDERR "First in pair\n" if DEBUG;
    if ($tag & 16 && !($tag & 32)) {
       $readbase eq $self->{refa} ? $self->{ref_f2r1}++ : $self->{alt_f2r1}++;
-   } elsif ($tag & 32 && !($tag & 16)) {
+   } elsif ($tag & 32 || !($tag & 16)) {
      $readbase eq $self->{refa} ? $self->{ref_f1r2}++ : $self->{alt_f1r2}++
    }
  } elsif ($tag & 128) { # Second read
-   #print STDERR "Second in pair\n" if DEBUG;
+   print STDERR "Second in pair\n" if DEBUG;
    if ($tag & 16 && !($tag & 32)) {
      $readbase eq $self->{refa} ? $self->{ref_f1r2}++ : $self->{alt_f1r2}++;
-   } elsif ($tag & 32 && !($tag & 16)) {
+   } elsif ($tag & 32 || !($tag & 16)) {
      $readbase eq $self->{refa} ? $self->{ref_f2r1}++ : $self->{alt_f2r1}++
    }
  } 
@@ -269,7 +269,6 @@ sub parse_cig {
  while($c =~/(\d+)(\D{1})/g) {
   my $count = $1;
   my $op    = $2;
-  print STDERR "Found $count of $op\n";
   # We fully handle only M I D N = and X flags
   # and do nothing about the others (just adding back bases)
 
