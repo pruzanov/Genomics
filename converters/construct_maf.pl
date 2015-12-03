@@ -35,6 +35,7 @@ use strict;
 use Getopt::Long;
 use FindBin qw($Bin);
 use Data::Dumper;
+use File::Basename;
 use lib "$Bin/lib/";
 use SNVCall;
 use constant DEBUG=>0;
@@ -68,11 +69,11 @@ my $result = GetOptions ('bam=s'      => \$bam,
                          'out=s'      => \$outfile);
 
 my $USAGE = "construct_maf.pl --bam [bam file] --vcf [vcf file] --picard-oxog-file [] --samtools [samtools] --ref-fasta [i.e. hg19.fa, for context extraction] --isect-bed [intersectBed] --tumor-id [optional, tumor id] --normal-id [optional, normal id] --filter [optional, i.e. PASS to limit the list of calls] --out [optional, filename]\n";
-if (!$bam || !$vcf || !$poxog || !$samtools || !$isectbed || !$ref_fasta) {die $USAGE;}
+if (!$bam || !$vcf || !$samtools || !$isectbed || !$ref_fasta) {die $USAGE;}
 
 #===============MAIN BLOCK===============//
 my %read2snp = ();
-my %poxo_q   = %{&read_poxo($poxog)};
+my %poxo_q = $poxog && -e $poxog ? %{&read_poxo($poxog)} : ();
 
 # read information from genotype file
 my %vars = %{&init_varhash};
@@ -80,11 +81,18 @@ my %vars = %{&init_varhash};
 # read information from alignment file
 &read_alignments();
 
+my ($file, $outdir, $suffix) = fileparse($outfile); # Find the output dir
+my $temp_file = $outdir."/temp_$$";
+open(TMP,">$temp_file") or die "Cannot write to a temporary file [$temp_file]";
+map{print TMP $vars{$_}->to_string()."\n"} (keys %vars);
+close TMP;
+
 open(OUT,">$outfile") or die "Cannot write to output file [$outfile]";
 print OUT join("\t",@colnames)."\n";
-map{print OUT $vars{$_}->to_string()."\n"} (keys %vars);
-
 close OUT;
+
+`sort -k 1,2 -V $temp_file >> $outfile && rm $temp_file`;
+
 #===========MAIN BLOCK ENDS=============//
 
 =head2
@@ -140,7 +148,7 @@ sub init_varhash {
    my $snp_id = join(":",($vcfinfo[0], $vcfinfo[1]));
    if ($filter && $vcfinfo[6] ne $filter) {next;}
    if ($vcfinfo[3]=~/^[A-T]{1}$/ && $vcfinfo[4]=~/^[A-T]{1}(\,.*)*$/)  { 
-       $read2snp{$readid} = $snp_id;
+       $read2snp{$readid}->{$snp_id}++;
        if (!$varhash{$snp_id}) {
         $varhash{$snp_id} = SNVCall->new(@vcfinfo[0..1],@vcfinfo[3..4]);
         $varhash{$snp_id}->set_tumor_id($tumor_id);
@@ -199,7 +207,9 @@ sub read_alignments {
     next;
   }
 
-  $vars{$read2snp{$readid}}->update_read($readid,$tag,$chr,$start,$cig,$seq);
+  foreach my $snp (keys %{$read2snp{$readid}}) {
+   $vars{$snp}->update_read($readid,$tag,$chr,$start,$cig,$seq);
+  }
   $count++;
  }
  
