@@ -10,7 +10,7 @@
 
 package SNVCall;   
 
-use constant DEBUG=>1;
+use constant DEBUG=>0;
 
 sub new {
  my $class  = shift;  
