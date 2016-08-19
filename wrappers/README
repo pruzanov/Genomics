@@ -1,4 +1,0 @@
-Scripts in this directory are simple wrappers for common NGS-processing tools
-
-all of the scripts work with lists of inputs and launch sge jobs using qsub command.
-The jobs are submitted as array jobs which simplifies job mainainance

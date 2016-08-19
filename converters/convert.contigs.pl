@@ -23,9 +23,11 @@ my $USAGE = "convert.contigs.pl --input [bam or sam] --ref [reference assembly f
 my %refs = ("23"    => "X",
             "24"    => "Y",
             "25"    => "M",
+            "MT"    => "M",
             "chr23" => "chrX",
             "chr24" => "chrY",
-            "chr25" => "chrM");
+            "chr25" => "chrM",
+            "chrMT" => "chrM");
 
 my($in, $out, $samtools, $ref, $strict);
 my $results = GetOptions('samtools=s'  => \$samtools,
@@ -64,15 +66,22 @@ while(my $line = <IN>) {
     print STDERR "AFTER: $line" if DEBUG;
    }
    if ($chr_prefix) {
-     if ($line!~/SN:chr/) {$line=~s/SN:/SN:chr/;$count++;}
+     if ($line!~/SN:chr/) {
+      $line=~s/SN:/SN:chr/;
+      $count++;
+     }
    } elsif ($line=~/SN:chr/) {
      $line=~s/SN:chr/SN:/;
    }
    
    # Check if we have this contig
-   if ($line=~/SN:(\S+)/ && !$contigs->{$1}) {
-     die "Unknown contig $1 detected, aborting";
-   }
+   if ($line=~/SN:(\S+)/) {
+     if (!$contigs->{$1}) {
+      $strict ? die "Unknown contig $1 detected, aborting" : next LINE;
+     }
+
+     $line=~s/SN:(\S+)\tLN:\d+/SN:$1\tLN:$contigs->{$1}/;
+   }  
    push @headerlines, $line;
  } else {
    if (@headerlines > 1) {
@@ -82,6 +91,8 @@ while(my $line = <IN>) {
    my @temp = split("\t",$line);
 
    # Append or remove chr if needed
+   next if ($temp[2] eq '*');
+
    if ($chr_prefix) {
      if ($temp[2]!~/^chr/) {
        $temp[2] = "chr$temp[2]";
@@ -97,7 +108,7 @@ while(my $line = <IN>) {
      $count++;
    }
    
-   # Skip if we have this contig
+   # Skip if we dont have this contig
    if (!$contigs->{$temp[2]}) {
        print STDERR "Skipping a line since contig [$temp[2]] is unknown\n";
        next LINE;

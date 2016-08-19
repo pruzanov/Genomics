@@ -28,9 +28,9 @@ my $result = GetOptions("list=s"         => \$list,
 
 if (!$list || !$mutect) { die $USAGE; }
 # Some PDE-specific defaults:
-$fasta  ||= "/.mounts/labs/PDE/data/MutectStrelka/hg19/hg19_random.fa";
-$dbsnp  ||= "/.mounts/labs/PDE/data/MutectStrelka/dbSNP/dbsnp_138.hg19.leftAligned.vcf.gz";
-$cosmic ||= "/.mounts/labs/PDE/data/MutectStrelka/cosmic/hg19_cosmic_v54_120711.vcf";
+$fasta  ||= $ENV{HOME}."/data/MutectStrelka/hg19/hg19_random.fa";
+$dbsnp  ||= $ENV{HOME}."/data/MutectStrelka/dbSNP/dbsnp_138.hg19.leftAligned.vcf.gz";
+$cosmic ||= $ENV{HOME}."/data/MutectStrelka/cosmic/hg19_cosmic_v54_120711.vcf";
 
 
 my $SGEscript = <<'MUTECT_SCRIPT';
