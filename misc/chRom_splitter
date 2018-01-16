@@ -1,0 +1,39 @@
+#!/usr/bin/perl -w
+
+#
+# Split a fasta file by chromosome
+#
+use strict;
+use IO::File;
+use File::Basename;
+use constant SUBDIR=>1; # Flag for using file name as subdir for split fasta files
+
+my $file  = shift @ARGV;
+my $class = shift @ARGV;
+$class||="";
+
+open(FILE,"<$file") or die "Couldn't read from your fasta file [$file]";
+my $dir = $file=~m!(.*)/! ? $1 : ".";
+my $file_id = $1 if (basename($file)=~/^(\S+?)\./);
+if ($file_id) {$dir.="/$file_id";}
+my($out);
+if (! -d $dir) {`mkdir -p $dir`;} else {print STDERR "Directory $dir exists, won't continue\n";exit;}
+my $skip = 0;
+
+while(<FILE>) {
+ if(/^>(\S+)/) {
+  chomp;
+  my $chr = $1;
+  if ($class=~/\S+/ && !/$class/) {$skip = 1; next;} else {$skip = 0;}
+  my $chrfile = join("/",($dir,$chr));
+  undef $out if $out;
+  $out = new IO::File(">$chrfile.fa") or die "Couldn't write to [$chrfile.fa]";
+  print $out $_."\n";
+  next;
+ }
+
+ print $out $_ unless $skip;
+
+}
+close FILE;
+undef $out if $out;

@@ -32,7 +32,6 @@ my $SGEscript = <<'SAMSTAT_SCRIPT';
 #$ -cwd
 #$ -l h_vmem=4G
 #$ -o /dev/null
-#$ -hold_jid PCSI612.mrg
 #$ -e Stats.e
 #$ -S /usr/bin/perl
 
