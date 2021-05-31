@@ -12,4 +12,4 @@ The jobs are submitted as array jobs which simplifies job mainainance
 * cnv - Copy Number Variation analysis
 * snv - SNV and indel analysis
 * alignment - wrappers for alignment tools
-* misc - anything else
+* misc - anything else, mostly wrappers
