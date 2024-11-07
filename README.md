@@ -10,6 +10,7 @@ The jobs are submitted as array jobs which simplifies job mainainance
 
 * converters - file manipulation and producing certain formats
 * cnv - Copy Number Variation analysis
+* expression - wrappers for RNAseq analysis (gene expression)
 * snv - SNV and indel analysis
 * alignment - wrappers for alignment tools
 * misc - anything else, mostly wrappers
