@@ -13,6 +13,7 @@
  
 use strict;
 use Getopt::Long;
+use Data::Dumper;
 use FindBin qw($Bin);
 
 my($list, $bwa, $ref, $samtools);
@@ -23,18 +24,17 @@ my $result = GetOptions("list=s"          => \$list,
                         "bwa=s"           => \$bwa);
 
 if (!$list) { die $USAGE; }
-# Some defaults TODO: User should change these
 if (!$ref) {
   print STDERR "It is recommended that user specifies the reference file with bwa indexes in the same dir\n";
-  $ref = "$HOME/BWA/workflow/input_data/0.6.2/hg19_random.fa";
+  $ref = "/.mounts/labs/PDE/data/RegressionTests/BWA/workflow/input_data/0.6.2/hg19_random.fa";
 }
 if (!$bwa) {
   print STDERR "Default bwa will be used\n";
-  $bwa = "$HOME/Downloads/bwa-0.7.13/bwa";
+  $bwa = "/u/pruzanov/Downloads/bwa-0.7.13/bwa";
 }
 if (!$samtools) {
  print STDERR "Default samtools will be used\n";
- $samtools = "$HOME/bin/samtools";
+ $samtools = "/u/pruzanov/bin/samtools";
 }
 
 my $SGEscript = <<'BWA_SCRIPT';

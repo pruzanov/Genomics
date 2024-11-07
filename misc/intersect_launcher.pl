@@ -10,21 +10,26 @@
  myinput.bam
  myinput.parsed.bam (where 'parsed' passed using tag argument)
 
- ./intersect_maker.s.pl --list [list of bam files] --ref [reference intervals] --tag [for making output names] --intersect-bed [path to intersectBed] --outdir [outdir, optional]
+ ./intersect_maker.s.pl --list [list of bam files] --ref [reference intervals] --tag [for making output names] --intersect-bed [path to intersectBed] --outdir [outdir, optional
+]
+
+ -f 0.6 is removed, use it if needed by passing in ioptions
 
 =cut
- 
+
 use strict;
 use Getopt::Long;
 use Data::Dumper;
 use FindBin qw($Bin);
 
-my($list, $outdir, $intbed, $refbed, $ioptions, $tag);
-my $USAGE = "intersect_launcher.pl --list [list of bam files] --ref [reference intervals] --intersect-bed [path to IntersectBed] --outdir [outdir, optional] --tag [optional suffix for outputs] --ioptions [optonal, options for intersectBed]\n"; 
+my($list, $outdir, $intbed, $refbed, $ioptions, $tag, $samtools, $filter);
+my $USAGE = "intersect_launcher.pl --list [list of bam files] --ref [reference intervals] --intersect-bed [path to IntersectBed] --outdir [outdir, optional] --tag [optional suffix for outputs] --ioptions [optonal, options for intersectBed]\n";
 my $result = GetOptions("list=s"         => \$list,
                         "intersect-bed=s"=> \$intbed,
                         "ref=s"          => \$refbed,
                         "tag=s"          => \$tag,
+                        "samtools=s"     => \$samtools,
+                        "filter|f"       => \$filter,
                         "ioptions=s"     => \$ioptions,
                         "outdir=s"       => \$outdir);
 
@@ -37,12 +42,16 @@ if (!$outdir) {
   if (!-d $outdir) {
     print STDERR "Directory $outdir does not exists, create it (y/n)?\n";
     my $answer = <STDIN>;
-    if ($answer !~/^y/i) {die "Aborting...\n";}
-    
+    if ($answer !~/^y/i) {die "Aborting...\n";}   
+
     `mkdir $outdir`;
   }
 }
+$samtools ||="samtools";
 $tag ||="";
+
+my $filter_on = $filter ? "WITH" : "WITHOUT";
+print STDERR "Performing analysis for $list\n with References in $refbed\n and $filter_on filtering\n";
 
 my $SGEscript = <<'INTERSECT_SCRIPT';
 #!/usr/bin/perl
@@ -51,12 +60,13 @@ my $SGEscript = <<'INTERSECT_SCRIPT';
 #$ -cwd
 #$ -l h_vmem=6G
 #$ -o /dev/null
-#$ -e /dev/null
+#$ -e Intersect.e
 #$ -S /usr/bin/perl
 
 #$ -N JOBNAME_TAG
 
 use strict;
+use File::Basename;
 my $Line=$ENV{"SGE_TASK_ID"};     #This is passed as an environment variable by SGE / Qsub
 
 my $ResultOutputDir = "OUTDIR_TAG";   #Where we will put the results
@@ -64,53 +74,66 @@ my $FileList        = "INLIST_TAG";
 my $intersectBed    = "INTBED_TAG";
 my $refBed          = "REFBED_TAG";
 my $options         = "OPTIONS_TAG";
+my $samtools        = "SAMTOOLS_TAG";
 my $tag             = "SUFFIX_TAG";
+my $filter          = "FILTER_TAG";
 
 open INPUTFILE , "$FileList" or die "Cannot open list of files '$FileList' containing inputs\n";
 my $File;
 
 my $Count=0;
 while (<INPUTFILE>) {
+        next if /^#/;
         chomp;
         $Count++;  #Increment the line counter
         if ($Count < $Line)        {       next;   }       #Skip until the lines we want:
         if ($Count > $Line )                  {               last;   }
 
-        #Below here only processed for wanted lines: 
+        #Below here only processed for wanted lines:
         $File = $_;
 }
 close INPUTFILE;
 
 my $out = $File;
 $out =~ s!(.*/)!!;
-my $filedir = $1;
+my $filedir = dirname($File);
 $out =~ s!\.bam!.isect!;
 $ResultOutputDir ||= $filedir;
 $out = join("/",($ResultOutputDir,$out));
 
 if ($tag=~/\S+/ && $tag!~/^\./) { $tag = ".".$tag; }
-if (!$File || !-e $File || !-s $File) { die "Couldn't read from File\n";}
+if (!$File || !-e $File || !-s $File) { die "Couldn't read from File[$File]\n";}
 
 if ($File && -e $File) {
   my $outPath = $out.$tag;
   my $type;
   if ($File=~/bam$/) {
-      $type =  "-u -abam";
-      $options =~/-bed/ ? $outPath.=".bed" : $outPath.=".bam";
+      $type =  " -abam"; # -u -abam
+      $options =~/bed/ ? $outPath.=".bed" : $outPath.=".bam";
   } else {
-      $type = "-u -a";
+      $type = " -a";
       $outPath.=".bed";
   }
-  
-  # The line that needs to be customized to suit the needs of the user:
-  
-  `$intersectBed -f 0.6 $type $File -b $refBed $options > $outPath`;
+
+  $outPath=~s/\.bed.bam/.bed/;
+  $outPath=~s/\.no_head//;
+
+  my $c = "";
+  if ($filter) {
+    $c = "samtools view -F 260 -q30 $File -b | $intersectBed $type stdin ";
+    $c.= "-b $refBed $options | grep -v rRNA | grep -v tRNA > $outPath";
+  } else {
+    $c = "$intersectBed $type $File -b $refBed $options > $outPath";
+  }
+
+  print STDERR $c."\n";
+  `$c`;
 }
 
 INTERSECT_SCRIPT
 
 my $JobName = "ISECT_$$";
-my $files = `wc -l $list`;
+my $files = `grep -v ^# $list | wc -l`;
 chomp($files);
 $files =~s/\s+.*//;
 
@@ -121,6 +144,8 @@ $SGEscript =~s/REFBED_TAG/$refbed/;
 $SGEscript =~s/OUTDIR_TAG/$outdir/;
 $SGEscript =~s/INLIST_TAG/$list/;
 $SGEscript =~s/OPTIONS_TAG/$ioptions/;
+$SGEscript =~s/SAMTOOLS_TAG/$samtools/;
+$filter ? $SGEscript =~s/FILTER_TAG/1/ : $SGEscript =~s/FILTER_TAG/0/;
 $SGEscript =~s/SUFFIX_TAG/$tag/;
 
 
@@ -133,7 +158,7 @@ close SCRIPT;
 # qsub
 print STDERR "Submitting script\n";
 
-my $SGEResult = `qsub $Bin/intersect_script$$.pl`;
+my $SGEResult = `qsub -V $Bin/intersect_script$$.pl`;
 
 $SGEResult =~ s/[\n\s]+$//g;    $SGEResult =~ s/[\r\n]/\n#:  /g;
 print "# SGE QSub launch result was:'$SGEResult'\n";
